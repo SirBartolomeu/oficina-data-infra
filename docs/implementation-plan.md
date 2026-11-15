@@ -200,3 +200,5 @@ O quarto clone `exports/oficina-auth-lambda` foi criado com histórico e workflo
 O empacotador agora rejeita outputs obrigatórios vazios antes de criar o arquivo. Um teste local criou o pacote com fixture completa e outro confirmou a rejeição quando `queueUrls.os_events` faltava; nenhum pacote inválido permaneceu.
 
 **SQL de bootstrap validado:** o bloco SQL de `bootstrap-rds-and-app-secrets.sh` foi executado sem alteração em um PostgreSQL 16 descartável. Criou as roles `oficina_os`/`oficina_execution`, os dois databases, revogou acesso público e concedeu acesso às roles próprias. O contêiner isolado foi removido; falta ainda comprovar a integração do script com Secrets Manager, RDS e Kubernetes na AWS.
+
+**Janela da demo:** as credenciais STS dos pods expiram em uma hora contada desde o deploy inicial. O pacote agora inclui `refresh-demo-credentials.sh` para renovar as três roles e o pull ECR, reiniciar os Deployments e rodar os healthchecks pouco antes da apresentação. Falta executar essa renovação no K3s AWS.
