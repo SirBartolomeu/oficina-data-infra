@@ -21,7 +21,7 @@ Atualizado em 15/11/2026. **Preparado** significa código/manifests presentes e 
 ## Ordem de coleta remota
 
 1. Registrar conta/região, custo aceito e autorização de bucket de state; guardar `terraform plan` revisado sem credenciais.
-2. Publicar três repositórios após autorização; configurar OIDC/variables e salvar URL de cada run CI.
+2. Publicar os três repositórios de serviços e o da Auth após autorização; configurar OIDC/variables e salvar URL de cada run CI.
 3. Aplicar Terraform autorizado, publicar imagens ECR, executar bootstrap K3s e `smoke-k3s.sh`.
 4. Executar `verify-flow-k3s.sh`; salvar ID da OS, trace e resultado da Lambda/cliente.
 5. Salvar capturas de RDS, DynamoDB, SQS/DLQ, ECR, Lambda/API Gateway, EC2/K3s e Grafana, sem exibir segredos ou tokens.
