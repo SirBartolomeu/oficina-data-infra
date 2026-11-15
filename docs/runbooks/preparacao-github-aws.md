@@ -2,6 +2,21 @@
 
 Execute na ordem. O assistente prepara Terraform, workflows e extração dos repositórios; os passos abaixo dependem da sua conta ou de autorização explícita. Não envie senhas, tokens ou chaves pelo chat e não os comite.
 
+## 0. Acesso temporário na máquina da demo
+
+1. Instale o [AWS CLI v2 para Windows](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html), se `aws --version` ainda não funcionar. O instalador oficial para o usuário atual não exige administrador. Abra um novo PowerShell depois da instalação.
+2. Se sua conta usa IAM Identity Center, obtenha com o administrador a **Start URL**, a região do Identity Center e o permission set da conta. Configure e entre com:
+
+   ```powershell
+   aws configure sso --profile oficina-demo
+   aws sso login --profile oficina-demo
+   $env:AWS_PROFILE = 'oficina-demo'
+   aws sts get-caller-identity --query '{Account:Account,Arn:Arn}'
+   ```
+
+   [Guia oficial do SSO no CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html). Se a conta não usa Identity Center, use o perfil temporário aprovado pelo administrador e execute os dois últimos comandos com o nome desse perfil. Não copie access keys para o chat, Terraform ou GitHub Actions. O retorno de `get-caller-identity` pode ser compartilhado: contém ID da conta e ARN, sem segredo.
+3. Confirme que o ID retornado é a conta da apresentação. Execute `terraform version` e `git --version`; o ZIP da Auth usa .NET 10. Mantenha o mesmo `$env:AWS_PROFILE` no terminal que executará `terraform init/plan/apply` e os comandos `aws s3`. Se a sessão expirar, repita `aws sso login --profile oficina-demo`.
+
 ## 1. Conta, região e orçamento
 
 1. Entre na conta AWS que usará na apresentação e escolha **uma região** para todos os recursos. Anote somente o ID da conta (12 dígitos) e a região, sem chaves.
