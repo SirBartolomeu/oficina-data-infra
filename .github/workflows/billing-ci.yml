@@ -3,10 +3,10 @@ name: billing-ci
 on:
   push:
     branches: [main]
-    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'global.json', '.github/workflows/billing-ci.yml']
+    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'global.json', '.github/workflows/billing-ci.yml']
   pull_request:
     branches: [main]
-    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'global.json', '.github/workflows/billing-ci.yml']
+    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'global.json', '.github/workflows/billing-ci.yml']
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,19 @@ jobs:
           global-json-file: global.json
       - name: Billing tests
         run: dotnet test services/Oficina.Billing.Tests --configuration Release --logger trx --results-directory test-results/billing
+      - name: Start DynamoDB Local for integration tests
+        run: |
+          docker run --rm -d --name oficina-billing-dynamo -p 127.0.0.1:8000:8000 amazon/dynamodb-local:latest -jar DynamoDBLocal.jar -inMemory -sharedDb
+          for attempt in {1..30}; do
+            if curl --silent --output /dev/null http://127.0.0.1:8000; then exit 0; fi
+            sleep 2
+          done
+          docker logs oficina-billing-dynamo
+          exit 1
+      - name: Billing DynamoDB integration tests
+        env:
+          BILLING_DYNAMO_ENDPOINT: http://127.0.0.1:8000
+        run: dotnet test services/Oficina.Billing.Dynamo.Tests --configuration Release --logger trx --results-directory test-results/billing-dynamo
       - name: Build Billing container
         run: docker build -f services/Oficina.Billing/Dockerfile -t oficina-billing:${{ github.sha }} .
       - name: ECR publication pending configuration
