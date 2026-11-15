@@ -117,8 +117,8 @@ resource "aws_lambda_function" "auth" {
   handler          = "Oficina.Auth::Oficina.Auth.Function::FunctionHandler"
   filename         = "${path.module}/artifacts/oficina-auth.zip"
   source_code_hash = filebase64sha256("${path.module}/artifacts/oficina-auth.zip")
-  timeout          = 10
-  memory_size      = 256
+  timeout          = 20
+  memory_size      = 512
 
   vpc_config {
     subnet_ids         = [for subnet in aws_subnet.private : subnet.id]
