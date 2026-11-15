@@ -196,3 +196,5 @@ O quarto clone `exports/oficina-auth-lambda` foi criado com histórico e workflo
 **Pré-deploy revisado:** `initial-deploy.sh` agora verifica os três SHA de imagem no ECR antes de criar bancos, alterar senhas ou gravar Secrets. A sintaxe Bash e o render Kustomize com saídas simuladas passaram localmente. Falta executar o pacote completo na EC2 real; esta verificação não substitui o smoke remoto.
 
 **Pacote S3 validado localmente:** `package-deployment.ps1` foi executado com outputs Terraform simulados, sem consultar a AWS. O `tar.gz` abriu com 37 entradas e continha `deployment-config.json`, o script de deploy, o renderizador e os dois Kustomize necessários. O arquivo temporário foi removido. O teste não comprova upload, permissões S3 ou execução no nó K3s.
+
+O empacotador agora rejeita outputs obrigatórios vazios antes de criar o arquivo. Um teste local criou o pacote com fixture completa e outro confirmou a rejeição quando `queueUrls.os_events` faltava; nenhum pacote inválido permaneceu.

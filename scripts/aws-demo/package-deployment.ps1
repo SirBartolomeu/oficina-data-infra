@@ -27,6 +27,17 @@ try {
         billingTableName = $tf.billing_table_name.value
         authTokenUrl = $tf.auth_token_url.value
     }
+    foreach ($name in @('awsRegion', 'rdsEndpoint', 'rdsMasterSecretArn', 'billingTableName', 'authTokenUrl')) {
+        if ([string]::IsNullOrWhiteSpace([string]$config[$name])) { throw "Output Terraform ausente: $name" }
+    }
+    foreach ($name in @('applicationSecretArns', 'workloadRoleArns', 'ecrRepositoryNames', 'ecrRepositories')) {
+        foreach ($service in @('os', 'execution', 'billing')) {
+            if ([string]::IsNullOrWhiteSpace([string]$config[$name].$service)) { throw "Output Terraform ausente: $name.$service" }
+        }
+    }
+    foreach ($queue in @('billing_workorders', 'execution_commands', 'os_events')) {
+        if ([string]::IsNullOrWhiteSpace([string]$config.queueUrls.$queue)) { throw "Output Terraform ausente: queueUrls.$queue" }
+    }
     $config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $stage 'deployment-config.json') -Encoding utf8
     & tar -czf $absoluteOutput -C $repoRoot k8s/distributed k8s/monitoring scripts/aws-demo/bootstrap-rds-and-app-secrets.sh scripts/aws-demo/prepare-workload-credentials.sh scripts/aws-demo/initial-deploy.sh scripts/aws-demo/render-distributed.py scripts/aws-demo/smoke-k3s.sh scripts/aws-demo/verify-flow.py scripts/aws-demo/verify-flow-k3s.sh -C $stage deployment-config.json
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao empacotar manifests e scripts.' }
