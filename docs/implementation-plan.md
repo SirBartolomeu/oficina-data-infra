@@ -198,3 +198,5 @@ O quarto clone `exports/oficina-auth-lambda` foi criado com histórico e workflo
 **Pacote S3 validado localmente:** `package-deployment.ps1` foi executado com outputs Terraform simulados, sem consultar a AWS. O `tar.gz` abriu com 37 entradas e continha `deployment-config.json`, o script de deploy, o renderizador e os dois Kustomize necessários. O arquivo temporário foi removido. O teste não comprova upload, permissões S3 ou execução no nó K3s.
 
 O empacotador agora rejeita outputs obrigatórios vazios antes de criar o arquivo. Um teste local criou o pacote com fixture completa e outro confirmou a rejeição quando `queueUrls.os_events` faltava; nenhum pacote inválido permaneceu.
+
+**SQL de bootstrap validado:** o bloco SQL de `bootstrap-rds-and-app-secrets.sh` foi executado sem alteração em um PostgreSQL 16 descartável. Criou as roles `oficina_os`/`oficina_execution`, os dois databases, revogou acesso público e concedeu acesso às roles próprias. O contêiner isolado foi removido; falta ainda comprovar a integração do script com Secrets Manager, RDS e Kubernetes na AWS.
