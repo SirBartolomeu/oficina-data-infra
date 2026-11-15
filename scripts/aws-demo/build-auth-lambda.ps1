@@ -1,4 +1,7 @@
-param([string]$OutputPath = 'infra/aws-demo/artifacts/oficina-auth.zip')
+param(
+    [string]$OutputPath = 'infra/aws-demo/artifacts/oficina-auth.zip',
+    [string]$DotnetPath = ''
+)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -8,8 +11,12 @@ if (-not (Test-Path -LiteralPath $zipDir)) { New-Item -ItemType Directory -Path 
 $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $publishDir = [System.IO.Path]::GetFullPath((Join-Path $tempRoot "oficina-auth-publish-$PID"))
 if (-not $publishDir.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Caminho temporário inválido.' }
-$dotnet = Join-Path $repoRoot '.dotnet_home/sdk10/dotnet.exe'
-if (-not (Test-Path -LiteralPath $dotnet)) { $dotnet = (Get-Command dotnet -ErrorAction Stop).Source }
+$dotnet = $DotnetPath
+if (-not $dotnet) {
+    $dotnet = Join-Path $repoRoot '.dotnet_home/sdk10/dotnet.exe'
+    if (-not (Test-Path -LiteralPath $dotnet)) { $dotnet = (Get-Command dotnet -ErrorAction Stop).Source }
+}
+if (-not (Test-Path -LiteralPath $dotnet)) { throw "dotnet não encontrado: $dotnet" }
 
 try {
     & $dotnet publish (Join-Path $repoRoot 'services/Oficina.Auth/Oficina.Auth.csproj') -c Release -o $publishDir --nologo
