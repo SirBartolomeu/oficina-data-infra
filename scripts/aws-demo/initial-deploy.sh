@@ -21,6 +21,18 @@ PY
 }
 
 region="$(value awsRegion)"
+declare -A images
+for service in os execution billing; do
+  repository="$(value ecrRepositoryNames "$service")"
+  uri="$(value ecrRepositories "$service")"
+  tag="$(aws ecr describe-images --region "$region" --repository-name "$repository" --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text)"
+  if [[ ! "$tag" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "Imagem ECR com SHA ausente para $service; publique os tres pipelines antes do deploy inicial." >&2
+    exit 1
+  fi
+  images[$service]="$uri:$tag"
+done
+
 bash "$root/scripts/aws-demo/bootstrap-rds-and-app-secrets.sh" \
   "$region" \
   "$(value rdsEndpoint)" \
@@ -34,18 +46,6 @@ bash "$root/scripts/aws-demo/prepare-workload-credentials.sh" \
   "$(value workloadRoleArns os)" \
   "$(value workloadRoleArns execution)" \
   "$(value workloadRoleArns billing)"
-
-declare -A images
-for service in os execution billing; do
-  repository="$(value ecrRepositoryNames "$service")"
-  uri="$(value ecrRepositories "$service")"
-  tag="$(aws ecr describe-images --region "$region" --repository-name "$repository" --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text)"
-  if [[ ! "$tag" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "Imagem ECR com SHA ausente para $service; publique os tres pipelines antes do deploy inicial." >&2
-    exit 1
-  fi
-  images[$service]="$uri:$tag"
-done
 
 kubectl=(sudo /usr/local/bin/k3s kubectl)
 "${kubectl[@]}" apply -k "$root/k8s/monitoring"
