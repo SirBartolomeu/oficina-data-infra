@@ -1,7 +1,8 @@
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "deployment_assets" {
-  bucket = "${substr(var.name_prefix, 0, 20)}-assets-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
+  bucket        = "${substr(var.name_prefix, 0, 20)}-assets-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "deployment_assets" {

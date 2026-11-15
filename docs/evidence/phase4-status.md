@@ -27,4 +27,6 @@ Atualizado em 15/11/2026. **Preparado** significa código/manifests presentes e 
 5. Salvar capturas de RDS, DynamoDB, SQS/DLQ, ECR, Lambda/API Gateway, EC2/K3s e Grafana, sem exibir segredos ou tokens.
 6. Gravar a apresentação e, após autorização, desmontar o ambiente; verificar custos residuais.
 
+O módulo permite `destroy` autorizado de ECR com imagens e do bucket de pacotes com objeto pendente. RDS não preserva snapshot final e os segredos de aplicação têm recuperação desativada. Revisar o plano de destruição antes de executá-lo; o bucket de state é externo ao módulo.
+
 O passo a passo operacional está em [preparação GitHub/AWS](../runbooks/preparacao-github-aws.md). As fontes completas de requisitos e decisões estão em [implementation-plan](../implementation-plan.md).
