@@ -2,6 +2,16 @@
 
 Estado Terraform separado para VPC/subnets, RDS PostgreSQL, DynamoDB, SQS/DLQ, ECR e entradas vazias de segredos. O módulo K3s lê somente seus outputs por `terraform_remote_state`; a ordem de criação é **data → K3s** e a remoção é **K3s → data**.
 
+```mermaid
+flowchart LR
+  K3s[Estado K3s] --> Remote[Outputs deste estado]
+  Remote --> VPC[VPC e subnets]
+  Remote --> RDS[RDS: OS e Execução]
+  Remote --> Dynamo[DynamoDB: Billing]
+  Remote --> SQS[SQS e DLQ]
+  Remote --> ECR[ECR dos três serviços]
+```
+
 ## Validação local
 
 ```powershell
@@ -16,4 +26,4 @@ O workflow `data-infra-ci` sempre executa `fmt` e `validate`. O disparo manual c
 
 Este módulo não contém API. Swagger/Postman ficam nos repositórios dos serviços. A visão geral e a sequência da Saga estão em `docs/architecture-phase4.md` no repositório de origem.
 
-Extraído do commit d145b185d3655573c4a3e15c3706a1bd508be924 do projeto oficina-mvp, preservando o histórico Git. Sem remote configurado.
+Extraído do commit d145b18 do projeto oficina-mvp, preservando o histórico Git. Sem remote configurado.
