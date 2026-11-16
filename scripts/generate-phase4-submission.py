@@ -89,11 +89,11 @@ def metadata_row(pdf, label, value, x, y, width):
     pdf.drawString(x, y, label)
     x_value = x + 94
     shown = value or "PENDENTE"
-    color = HexColor("#245985") if value else HexColor("#9b5c0b")
+    color = HexColor("#9b5c0b") if not value or value.startswith("URL ") else HexColor("#245985")
     y_next = paragraph(pdf, shown, x_value, y, width - 94, size=9, leading=12, color=color)
     if value and value.startswith("https://"):
         pdf.linkURL(value, (x_value, y_next + 10, x + width, y + 10), relative=0)
-    return y_next - 7
+    return y_next - 4
 
 
 def architecture(pdf):
@@ -142,7 +142,7 @@ def draw_first_page(pdf, data, complete):
         pdf.roundRect(42, 720, width - 84, 24, 5, fill=1, stroke=0)
         pdf.setFillColor(HexColor("#8a5500"))
         pdf.setFont("Helvetica-Bold", 9)
-        pdf.drawCentredString(width / 2, 728, "RASCUNHO - identificação, repositórios ou vídeo ainda pendentes")
+        pdf.drawCentredString(width / 2, 728, "RASCUNHO - links ou confirmação do colaborador pendentes")
 
     y = 704 if not complete else 729
     y = heading(pdf, "Identificação e links", 42, y)
@@ -151,22 +151,21 @@ def draw_first_page(pdf, data, complete):
                       for item in participants if item.get("name") and item.get("rm"))
     y = metadata_row(pdf, "Participantes", names, 42, y, width - 84)
     repositories = data.get("repositories") or {}
-    for label, key in (("OS", "os"), ("Execução", "execution"), ("Billing", "billing")):
+    for label, key in (("OS", "os"), ("Execução", "execution"), ("Billing", "billing"),
+                       ("Auth Lambda", "auth"), ("Infra K8s", "k8s_infra"),
+                       ("Infra Banco", "data_infra")):
         y = metadata_row(pdf, label, repositories.get(key, ""), 42, y, width - 84)
     y = metadata_row(pdf, "Vídeo (15 min)", data.get("video_url", ""), 42, y, width - 84)
+    y = metadata_row(pdf, "Documentação", data.get("documentation_url", ""), 42, y, width - 84)
+    collaborator = ("Confirmado nos seis repositórios" if data.get("soat_architecture_added") else "")
+    y = metadata_row(pdf, "soat-architecture", collaborator, 42, y, width - 84)
 
-    heading(pdf, "Arquitetura geral", 42, 568)
+    architecture_heading_y = min(568, y - 14)
+    heading(pdf, "Arquitetura geral", 42, architecture_heading_y)
+    pdf.saveState()
+    pdf.translate(0, architecture_heading_y - 568)
     architecture(pdf)
-    paragraph(pdf,
-              "OS e Execução têm databases e usuários PostgreSQL próprios na instância RDS. "
-              "Billing usa uma tabela DynamoDB própria. Nenhum serviço acessa diretamente "
-              "o banco de outro. REST atende cotações; SQS transporta eventos e comandos.",
-              42, 199, width - 84, size=9, leading=13)
-    paragraph(pdf,
-              "GitHub Actions usa OIDC para publicar imagens no ECR e acionar rollout K3s por SSM. "
-              "A autenticação CPF/JWT é uma Lambda .NET exposta por HTTP API; a consulta à OS "
-              "ocorre pela rede privada. Terraform provisiona a infraestrutura da demonstração.",
-              42, 148, width - 84, size=9, leading=13)
+    pdf.restoreState()
     footer(pdf, 1)
     pdf.showPage()
 
@@ -214,6 +213,16 @@ def draw_second_page(pdf):
                   "do plan e autorização, e removida após a apresentação autorizada.",
                   42, y, width - 84, size=10, leading=15)
     y -= 15
+    y = paragraph(pdf,
+                  "OS e Execução têm databases e usuários PostgreSQL próprios na instância RDS. "
+                  "Billing usa uma tabela DynamoDB própria. Nenhum serviço acessa diretamente "
+                  "o banco de outro. REST atende cotações; SQS transporta eventos e comandos.",
+                  42, y, width - 84, size=9, leading=13) - 9
+    y = paragraph(pdf,
+                  "GitHub Actions usa OIDC para publicar imagens no ECR e acionar rollout K3s por SSM. "
+                  "A autenticação CPF/JWT é uma Lambda .NET exposta por HTTP API; a consulta à OS "
+                  "ocorre pela rede privada. Terraform provisiona a infraestrutura da demonstração.",
+                  42, y, width - 84, size=9, leading=13) - 15
     pdf.setFillColor(LIGHT)
     pdf.roundRect(42, y - 40, width - 84, 51, 6, fill=1, stroke=0)
     paragraph(pdf,
@@ -235,8 +244,10 @@ def main():
     repositories = data.get("repositories") or {}
     complete = (bool(participants) and all(item.get("name") and item.get("rm") for item in participants)
                 and all(str(repositories.get(key, "")).startswith("https://")
-                        for key in ("os", "execution", "billing"))
-                and str(data.get("video_url", "")).startswith("https://"))
+                        for key in ("os", "execution", "billing", "auth", "k8s_infra", "data_infra"))
+                and str(data.get("video_url", "")).startswith("https://")
+                and str(data.get("documentation_url", "")).startswith("https://")
+                and data.get("soat_architecture_added") is True)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     pdf = canvas.Canvas(str(args.output), pagesize=A4)
     pdf.setTitle("Tech Challenge FIAP - Fase 4" + ("" if complete else " - Rascunho"))

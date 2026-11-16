@@ -5,7 +5,12 @@
   "repositories": {
     "os": "",
     "execution": "",
-    "billing": ""
+    "billing": "",
+    "auth": "",
+    "k8s_infra": "",
+    "data_infra": ""
   },
-  "video_url": ""
+  "video_url": "",
+  "documentation_url": "",
+  "soat_architecture_added": false
 }
