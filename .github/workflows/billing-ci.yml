@@ -3,10 +3,10 @@ name: billing-ci
 on:
   push:
     branches: [main]
-    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'scripts/validate-billing-coverage.ps1', 'global.json', '.github/workflows/billing-ci.yml']
+    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'scripts/validate-service-coverage.ps1', 'global.json', '.github/workflows/billing-ci.yml']
   pull_request:
     branches: [main]
-    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'scripts/validate-billing-coverage.ps1', 'global.json', '.github/workflows/billing-ci.yml']
+    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'scripts/validate-service-coverage.ps1', 'global.json', '.github/workflows/billing-ci.yml']
   workflow_dispatch:
 
 permissions:
@@ -50,7 +50,7 @@ jobs:
         run: dotnet test services/Oficina.Billing.Dynamo.Tests --configuration Release --collect:"XPlat Code Coverage" --logger trx --results-directory test-results/billing-dynamo
       - name: Billing 80% coverage gate
         shell: pwsh
-        run: ./scripts/validate-billing-coverage.ps1 -Minimum 80
+        run: ./scripts/validate-service-coverage.ps1 -AssemblyName Oficina.Billing -UnitResultsDirectory test-results/billing -IntegrationResultsDirectory test-results/billing-dynamo -Minimum 80
       - name: Build Billing container
         run: docker build -f services/Oficina.Billing/Dockerfile -t oficina-billing:${{ github.sha }} .
       - name: ECR publication pending configuration

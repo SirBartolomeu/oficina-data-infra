@@ -17,7 +17,7 @@ Se a AWS estiver pronta, execute `bash /opt/oficina-demo/scripts/aws-demo/refres
 | Tempo | Mostrar | Mensagem principal |
 |---|---|---|
 | 0–2 min | [Arquitetura](architecture-phase4.md) | Três serviços .NET, bancos próprios SQL/NoSQL, Saga por filas e autenticação serverless. |
-| 2–5 min | GitHub Actions: três pipelines CI/CD de serviços e run Auth | Testes unitários e PostgreSQL/DynamoDB, imagens, OIDC, publicação ECR, rollout Kubernetes e atualização da Lambda **somente se os runs reais tiverem passado**. |
+| 2–5 min | GitHub Actions: três pipelines CI/CD de serviços e run Auth | Testes unitários e PostgreSQL/DynamoDB, gates locais de 80% em Billing/Execução, imagens, OIDC, publicação ECR, rollout Kubernetes e atualização da Lambda **somente se os runs reais tiverem passado**. |
 | 5–8 min | Console AWS e `kubectl get pods,svc,hpa` | EC2/K3s, RDS, DynamoDB, SQS/DLQ e três pods prontos; mostrar SHA de imagem e healthchecks. |
 | 8–12 min | `bash /opt/oficina-demo/scripts/aws-demo/verify-flow-k3s.sh` e demo local | Mostrar OS/trace AWS até `AwaitingApproval` e CPF → JWT pela Lambda; o tracking da AWS usa port-forward no nó. No Docker, demonstrar Saga com pagamento simulado e uma compensação. |
 | 12–14 min | Grafana/traces e alerta | Métricas de negócio, correlação distribuída e falha observável. |

@@ -1,17 +1,18 @@
 param(
+    [Parameter(Mandatory = $true)][string]$AssemblyName,
     [int]$Minimum = 80,
-    [string]$UnitResultsDirectory = 'test-results/billing',
-    [string]$IntegrationResultsDirectory = 'test-results/billing-dynamo'
+    [Parameter(Mandatory = $true)][string]$UnitResultsDirectory,
+    [Parameter(Mandatory = $true)][string]$IntegrationResultsDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 
-function Read-BillingLines([string]$directory) {
+function Read-ServiceLines([string]$directory) {
     $reports = @(Get-ChildItem -LiteralPath $directory -Recurse -Filter 'coverage.cobertura.xml')
     if ($reports.Count -ne 1) { throw "Esperado um relatório Cobertura em $directory; encontrados $($reports.Count)." }
     [xml]$coverage = Get-Content -LiteralPath $reports[0].FullName
-    $packages = @($coverage.coverage.packages.package | Where-Object { $_.name -eq 'Oficina.Billing' })
-    if ($packages.Count -ne 1) { throw "Pacote Oficina.Billing ausente ou duplicado em $directory." }
+    $packages = @($coverage.coverage.packages.package | Where-Object { $_.name -eq $AssemblyName })
+    if ($packages.Count -ne 1) { throw "Pacote $AssemblyName ausente ou duplicado em $directory." }
     $lines = @{}
     foreach ($class in @($packages[0].classes.class)) {
         foreach ($line in @($class.lines.line)) {
@@ -21,12 +22,12 @@ function Read-BillingLines([string]$directory) {
             else { $lines[$key] = $hit }
         }
     }
-    if ($lines.Count -eq 0) { throw "Nenhuma linha instrumentada de Oficina.Billing em $directory." }
+    if ($lines.Count -eq 0) { throw "Nenhuma linha instrumentada de $AssemblyName em $directory." }
     return $lines
 }
 
-$unit = Read-BillingLines $UnitResultsDirectory
-$integration = Read-BillingLines $IntegrationResultsDirectory
+$unit = Read-ServiceLines $UnitResultsDirectory
+$integration = Read-ServiceLines $IntegrationResultsDirectory
 if ($unit.Count -ne $integration.Count) { throw 'As suítes instrumentaram conjuntos diferentes de linhas.' }
 $covered = 0
 foreach ($key in $unit.Keys) {
@@ -34,5 +35,5 @@ foreach ($key in $unit.Keys) {
     if ($unit[$key] -or $integration[$key]) { $covered++ }
 }
 $percent = [math]::Round(100.0 * $covered / $unit.Count, 2)
-Write-Output "Cobertura Billing: $covered/$($unit.Count) linhas ($percent%). Mínimo: $Minimum%."
-if ($covered * 100 -lt $Minimum * $unit.Count) { throw "Cobertura Billing abaixo de $Minimum%." }
+Write-Output "Cobertura $AssemblyName`: $covered/$($unit.Count) linhas ($percent%). Mínimo: $Minimum%."
+if ($covered * 100 -lt $Minimum * $unit.Count) { throw "Cobertura $AssemblyName abaixo de $Minimum%." }
