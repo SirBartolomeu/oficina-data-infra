@@ -93,9 +93,11 @@ public sealed class OpenedEventFlowTests
                 [new OsEvents.WorkOrderOpenedLine("Service", serviceId, "Revisão", 1, 12500)],
                 12500, "BRL", DateTime.UtcNow));
         var json = JsonSerializer.Serialize(envelope, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        await using var sqlite = new SqliteConnection("Data Source=:memory:");
-        await sqlite.OpenAsync();
-        var dbOptions = new DbContextOptionsBuilder<WorkshopDbContext>().UseSqlite(sqlite).Options;
+        var osConnectionString = $"Data Source=os-flow-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        await using var osAnchor = new SqliteConnection(osConnectionString);
+        await osAnchor.OpenAsync();
+        var dbOptions = new DbContextOptionsBuilder<WorkshopDbContext>()
+            .UseSqlite(osConnectionString).Options;
         await using var db = new WorkshopDbContext(dbOptions);
         await db.Database.EnsureCreatedAsync();
         var executionConnectionString = $"Data Source=execution-flow-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
