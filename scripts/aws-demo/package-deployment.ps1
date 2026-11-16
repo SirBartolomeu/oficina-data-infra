@@ -1,4 +1,7 @@
-param([string]$OutputPath = (Join-Path $env:TEMP 'oficina-demo-assets.tar.gz'))
+param(
+    [string]$OutputPath = (Join-Path $env:TEMP 'oficina-demo-assets.tar.gz'),
+    [string]$TerraformDirectory = 'infra/aws-demo'
+)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -12,7 +15,7 @@ New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
 Push-Location $repoRoot
 try {
-    $outputJson = & terraform -chdir=infra/aws-demo output -json
+    $outputJson = & terraform "-chdir=$TerraformDirectory" output -json
     if ($LASTEXITCODE -ne 0) { throw 'Terraform output indisponível; execute somente após o apply autorizado.' }
     $tf = ($outputJson -join "`n") | ConvertFrom-Json
     $config = [ordered]@{

@@ -38,6 +38,13 @@ terraform.tfstate.backup
 !*.tfvars.example
 infra/aws-demo/backend.hcl
 infra/aws-demo/artifacts/
+infra/aws-data/backend.hcl
+infra/aws-k3s/backend.hcl
+infra/aws-k3s/artifacts/
+infra/aws-data/plan.tfplan
+infra/aws-data/plan.txt
+infra/aws-k3s/plan.tfplan
+infra/aws-k3s/plan.txt
 docs/submission-metadata.json
 output/pdf/fiap-fase4-entrega-rascunho.pdf
 .env
