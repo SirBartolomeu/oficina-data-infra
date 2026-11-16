@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Amazon.DynamoDBv2;
@@ -16,6 +17,59 @@ namespace Oficina.Billing.Dynamo.Tests;
 
 public sealed class RefundReconciliationHttpTests
 {
+    [Fact]
+    public async Task BudgetEndpointsRequireTokenAndPersistApproval()
+    {
+        var endpoint = Environment.GetEnvironmentVariable("BILLING_DYNAMO_ENDPOINT")
+            ?? throw new InvalidOperationException("Defina BILLING_DYNAMO_ENDPOINT para o teste local.");
+        using var dynamo = new AmazonDynamoDBClient(new BasicAWSCredentials("local", "local"),
+            new AmazonDynamoDBConfig { ServiceURL = endpoint });
+        var table = "billing_budget_http_" + Guid.NewGuid().ToString("N");
+        await dynamo.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = table, BillingMode = BillingMode.PAY_PER_REQUEST,
+            AttributeDefinitions = [new("pk", ScalarAttributeType.S), new("sk", ScalarAttributeType.S)],
+            KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)]
+        });
+        const string internalToken = "local-internal-token-for-budget-test-123456";
+        using var environment = new TestEnvironment(new Dictionary<string, string>
+        {
+            ["InternalToken"] = internalToken, ["DynamoDb__Table"] = table,
+            ["DynamoDb__ServiceUrl"] = endpoint
+        });
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+            builder.UseEnvironment("Testing"));
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready")).StatusCode);
+
+        var workOrderId = Guid.NewGuid();
+        var url = $"/internal/budgets/{workOrderId:D}/1";
+        var request = new CreateBudgetRequest(workOrderId, 1, "sp-centro",
+            [new BudgetLine(Guid.NewGuid(), "Revisão", 2, 1250)]);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/internal/budgets", request)).StatusCode);
+        client.DefaultRequestHeaders.Add("X-Internal-Token", internalToken);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(url)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/internal/budgets", request with { Lines = [] })).StatusCode);
+        using var created = await client.PostAsJsonAsync("/internal/budgets", request);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        using var budget = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        Assert.Equal(2500, budget.RootElement.GetProperty("totalCents").GetInt64());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(url)).StatusCode);
+
+        using var approved = await client.PostAsJsonAsync(url + "/decision",
+            new BudgetDecisionRequest(true));
+        Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+        using var decision = JsonDocument.Parse(await approved.Content.ReadAsStringAsync());
+        Assert.Equal(2, decision.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await client.PostAsJsonAsync(url + "/decision", new BudgetDecisionRequest(false))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/internal/payments/{Guid.NewGuid():D}")).StatusCode);
+    }
+
     [Fact]
     public async Task InternalRouteRequiresTokenAndConfirmsRefundWithGetOnly()
     {

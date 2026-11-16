@@ -3,10 +3,10 @@ name: billing-ci
 on:
   push:
     branches: [main]
-    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'global.json', '.github/workflows/billing-ci.yml']
+    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'scripts/validate-billing-coverage.ps1', 'global.json', '.github/workflows/billing-ci.yml']
   pull_request:
     branches: [main]
-    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'global.json', '.github/workflows/billing-ci.yml']
+    paths: ['services/Oficina.Billing/**', 'services/Oficina.Billing.Tests/**', 'services/Oficina.Billing.Dynamo.Tests/**', 'scripts/validate-billing-coverage.ps1', 'global.json', '.github/workflows/billing-ci.yml']
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
         with:
           global-json-file: global.json
       - name: Billing tests
-        run: dotnet test services/Oficina.Billing.Tests --configuration Release --logger trx --results-directory test-results/billing
+        run: dotnet test services/Oficina.Billing.Tests --configuration Release --collect:"XPlat Code Coverage" --logger trx --results-directory test-results/billing
       - name: Start DynamoDB Local for integration tests
         run: |
           docker run --rm -d --name oficina-billing-dynamo -p 127.0.0.1:8000:8000 amazon/dynamodb-local:latest -jar DynamoDBLocal.jar -inMemory -sharedDb
@@ -34,10 +34,23 @@ jobs:
           done
           docker logs oficina-billing-dynamo
           exit 1
+      - name: Start SQS emulator for message flow
+        run: |
+          docker run --rm -d --name oficina-billing-sqs -p 127.0.0.1:9324:9324 softwaremill/elasticmq-native:latest
+          for attempt in {1..30}; do
+            if curl --silent --output /dev/null http://127.0.0.1:9324; then exit 0; fi
+            sleep 2
+          done
+          docker logs oficina-billing-sqs
+          exit 1
       - name: Billing DynamoDB integration tests
         env:
           BILLING_DYNAMO_ENDPOINT: http://127.0.0.1:8000
-        run: dotnet test services/Oficina.Billing.Dynamo.Tests --configuration Release --logger trx --results-directory test-results/billing-dynamo
+          MESSAGING_SQS_ENDPOINT: http://127.0.0.1:9324
+        run: dotnet test services/Oficina.Billing.Dynamo.Tests --configuration Release --collect:"XPlat Code Coverage" --logger trx --results-directory test-results/billing-dynamo
+      - name: Billing 80% coverage gate
+        shell: pwsh
+        run: ./scripts/validate-billing-coverage.ps1 -Minimum 80
       - name: Build Billing container
         run: docker build -f services/Oficina.Billing/Dockerfile -t oficina-billing:${{ github.sha }} .
       - name: ECR publication pending configuration
@@ -90,5 +103,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: billing-test-results
-          path: test-results/**/*.trx
+          path: |
+            test-results/**/*.trx
+            test-results/**/coverage.cobertura.xml
           if-no-files-found: ignore
