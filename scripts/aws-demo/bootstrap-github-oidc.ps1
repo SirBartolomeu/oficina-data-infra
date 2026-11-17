@@ -123,6 +123,36 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
             }
             continue
         }
+        if ($group.Name -eq 'ec2') {
+            $describeActions = @($group.Group | Where-Object { $_ -eq 'ec2:Describe*' })
+            $writeActions = @($group.Group | Where-Object { $_ -ne 'ec2:Describe*' })
+            if ($describeActions.Count -gt 0) {
+                [ordered]@{ Effect = 'Allow'; Action = $describeActions; Resource = '*' }
+            }
+            foreach ($action in $writeActions) {
+                $resourceTypes = switch ($action) {
+                    { $_ -in @('ec2:CreateVpc','ec2:DeleteVpc','ec2:ModifyVpcAttribute','ec2:GetSecurityGroupsForVpc') } { @('vpc'); break }
+                    { $_ -in @('ec2:CreateSubnet','ec2:DeleteSubnet','ec2:ModifySubnetAttribute') } { @('subnet'); break }
+                    { $_ -in @('ec2:CreateInternetGateway','ec2:DeleteInternetGateway') } { @('internet-gateway'); break }
+                    { $_ -in @('ec2:AttachInternetGateway','ec2:DetachInternetGateway') } { @('internet-gateway','vpc'); break }
+                    { $_ -in @('ec2:CreateRouteTable','ec2:DeleteRouteTable','ec2:CreateRoute','ec2:DeleteRoute') } { @('route-table'); break }
+                    { $_ -in @('ec2:AssociateRouteTable','ec2:DisassociateRouteTable') } { @('route-table','subnet'); break }
+                    { $_ -in @('ec2:CreateSecurityGroup','ec2:DeleteSecurityGroup','ec2:AuthorizeSecurityGroupIngress','ec2:AuthorizeSecurityGroupEgress','ec2:RevokeSecurityGroupIngress','ec2:RevokeSecurityGroupEgress') } { @('security-group'); break }
+                    { $_ -in @('ec2:CreateTags','ec2:DeleteTags') } { @('vpc','subnet','internet-gateway','route-table','security-group','security-group-rule','vpc-endpoint','network-interface','instance','volume'); break }
+                    { $_ -in @('ec2:RunInstances') } { @('instance','volume','network-interface','subnet','security-group','key-pair') + @('image'); break }
+                    'ec2:TerminateInstances' { @('instance'); break }
+                    { $_ -in @('ec2:CreateVpcEndpoint','ec2:DeleteVpcEndpoints','ec2:ModifyVpcEndpoint') } { @('vpc-endpoint','vpc','subnet','route-table','security-group'); break }
+                    { $_ -in @('ec2:CreateNetworkInterface','ec2:DeleteNetworkInterface') } { @('network-interface'); break }
+                    default { throw ('No EC2 resource mapping for ' + $action) }
+                }
+                $ec2Arns = @($resourceTypes | ForEach-Object {
+                    if ($_ -eq 'image') { 'arn:aws:ec2:' + $region + '::image/*' }
+                    else { 'arn:aws:ec2:' + $region + ':' + $AccountId + ':' + $_ + '/*' }
+                })
+                [ordered]@{ Effect = 'Allow'; Action = @($action); Resource = $ec2Arns }
+            }
+            continue
+        }
         if ($group.Name -eq 'rds') {
             $describeAllInstances = @($group.Group | Where-Object { $_ -eq 'rds:DescribeDBInstances' })
             $scopedRdsActions = @($group.Group | Where-Object { $_ -ne 'rds:DescribeDBInstances' })
@@ -155,7 +185,6 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
             continue
         }
         $serviceResources = switch ($group.Name) {
-            'ec2' { @('*'); break }
             'kms' { @($secretsManagerKmsKeyArn); break }
             'dynamodb' { @(('arn:aws:dynamodb:' + $region + ':' + $AccountId + ':table/' + $prefix + '-*')); break }
             'sqs' { @(('arn:aws:sqs:' + $region + ':' + $AccountId + ':' + $prefix + '-*')); break }
