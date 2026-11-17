@@ -56,7 +56,7 @@ $k3sActions = @(
     'iam:CreateInstanceProfile','iam:DeleteInstanceProfile','iam:GetInstanceProfile','iam:AddRoleToInstanceProfile','iam:RemoveRoleFromInstanceProfile','iam:TagInstanceProfile','iam:UntagInstanceProfile','iam:PassRole',
     'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration','lambda:GetPolicy','lambda:ListTags','lambda:ListVersionsByFunction',
     'lambda:AddPermission','lambda:RemovePermission','lambda:TagResource','lambda:UntagResource',
-    'apigateway:GET','apigateway:POST','apigateway:PUT','apigateway:PATCH','apigateway:DELETE',
+    'apigateway:GET','apigateway:POST','apigateway:PUT','apigateway:PATCH','apigateway:DELETE','apigateway:TagResource',
     'ssm:CreateDocument','ssm:UpdateDocument','ssm:UpdateDocumentDefaultVersion','ssm:DeleteDocument','ssm:DescribeDocument','ssm:DescribeDocumentPermission','ssm:GetDocument','ssm:AddTagsToResource','ssm:RemoveTagsFromResource',
     's3:CreateBucket','s3:DeleteBucket','s3:GetBucketLocation','s3:ListBucket','s3:GetBucketPolicy','s3:GetBucketAcl','s3:GetBucketCORS',
     's3:GetBucketWebsite','s3:GetBucketVersioning','s3:GetAccelerateConfiguration','s3:GetBucketRequestPayment','s3:GetBucketLogging',
@@ -252,6 +252,20 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
             default { @('*') }
         }
         $groupActions = @($group.Group)
+        if ($group.Name -eq 'apigateway' -and $Name -eq ($prefix + '-infra-k3s')) {
+            $tagActions = @($groupActions | Where-Object { $_ -eq 'apigateway:TagResource' })
+            $apiActions = @($groupActions | Where-Object { $_ -ne 'apigateway:TagResource' })
+            if ($apiActions.Count -gt 0) {
+                [ordered]@{ Effect = 'Allow'; Action = $apiActions; Resource = $serviceResources }
+            }
+            if ($tagActions.Count -gt 0) {
+                [ordered]@{
+                    Effect = 'Allow'; Action = $tagActions
+                    Resource = @('arn:aws:apigateway:' + $region + '::/apis/' + $AuthApiId + '/stages')
+                }
+            }
+            continue
+        }
         if ($group.Name -eq 'iam' -and $Name -eq ($prefix + '-infra-k3s')) {
             # IAM ListOpenIDConnectProviders is account-scoped and requires Resource "*".
             $oidcProviderListActions = @($groupActions | Where-Object { $_ -eq 'iam:ListOpenIDConnectProviders' })
