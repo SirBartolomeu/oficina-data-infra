@@ -48,16 +48,18 @@ $k3sActions = @(
     'ec2:Describe*','ec2:RunInstances','ec2:TerminateInstances','ec2:CreateTags','ec2:DeleteTags','ec2:CreateSecurityGroup','ec2:DeleteSecurityGroup',
     'ec2:AuthorizeSecurityGroupIngress','ec2:AuthorizeSecurityGroupEgress','ec2:RevokeSecurityGroupIngress','ec2:RevokeSecurityGroupEgress',
     'ec2:CreateVpcEndpoint','ec2:DeleteVpcEndpoints','ec2:ModifyVpcEndpoint','ec2:CreateNetworkInterface','ec2:DeleteNetworkInterface','ec2:GetSecurityGroupsForVpc',
-    'ssm:GetParameter','iam:CreateRole','iam:DeleteRole','iam:GetRole','iam:UpdateAssumeRolePolicy','iam:TagRole','iam:UntagRole',
+    'ec2:ModifyInstanceAttribute','ec2:ModifyInstanceMetadataOptions','ec2:ModifyVolume','ec2:StartInstances','ec2:StopInstances',
+    'ec2:AssociateIamInstanceProfile','ec2:DisassociateIamInstanceProfile','ec2:ReplaceIamInstanceProfileAssociation','ec2:ModifySecurityGroupRules',
+    'ssm:GetParameter','iam:CreateRole','iam:DeleteRole','iam:GetRole','iam:UpdateRole','iam:UpdateAssumeRolePolicy','iam:TagRole','iam:UntagRole',
     'iam:ListRolePolicies','iam:ListAttachedRolePolicies','iam:ListOpenIDConnectProviders','iam:GetOpenIDConnectProvider','iam:PutRolePolicy','iam:GetRolePolicy','iam:DeleteRolePolicy','iam:AttachRolePolicy','iam:DetachRolePolicy',
     'iam:CreateInstanceProfile','iam:DeleteInstanceProfile','iam:GetInstanceProfile','iam:AddRoleToInstanceProfile','iam:RemoveRoleFromInstanceProfile','iam:TagInstanceProfile','iam:UntagInstanceProfile','iam:PassRole',
     'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration','lambda:GetPolicy','lambda:ListTags',
     'lambda:AddPermission','lambda:RemovePermission','lambda:TagResource','lambda:UntagResource',
     'apigateway:GET','apigateway:POST','apigateway:PUT','apigateway:PATCH','apigateway:DELETE',
-    'ssm:CreateDocument','ssm:UpdateDocument','ssm:DeleteDocument','ssm:DescribeDocument','ssm:DescribeDocumentPermission','ssm:GetDocument','ssm:AddTagsToResource','ssm:RemoveTagsFromResource',
+    'ssm:CreateDocument','ssm:UpdateDocument','ssm:UpdateDocumentDefaultVersion','ssm:DeleteDocument','ssm:DescribeDocument','ssm:DescribeDocumentPermission','ssm:GetDocument','ssm:AddTagsToResource','ssm:RemoveTagsFromResource',
     's3:CreateBucket','s3:DeleteBucket','s3:GetBucketLocation','s3:ListBucket','s3:GetBucketPolicy','s3:GetBucketAcl','s3:GetBucketCORS',
     's3:GetBucketWebsite','s3:GetBucketVersioning','s3:GetAccelerateConfiguration','s3:GetBucketRequestPayment','s3:GetBucketLogging',
-    's3:GetLifecycleConfiguration','s3:GetReplicationConfiguration','s3:GetBucketObjectLockConfiguration','s3:GetBucketOwnershipControls','s3:GetBucketPolicyStatus',
+    's3:GetReplicationConfiguration','s3:GetBucketObjectLockConfiguration','s3:GetBucketOwnershipControls','s3:GetBucketPolicyStatus',
     's3:GetBucketTagging','s3:PutBucketTagging',
     's3:GetBucketPublicAccessBlock','s3:PutBucketPublicAccessBlock','s3:GetEncryptionConfiguration','s3:PutEncryptionConfiguration',
     's3:GetLifecycleConfiguration','s3:PutLifecycleConfiguration',
@@ -152,6 +154,9 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
                     { $_ -in @('ec2:CreateTags','ec2:DeleteTags') } { @('vpc','subnet','internet-gateway','route-table','security-group','security-group-rule','vpc-endpoint','network-interface','instance','volume'); break }
                     { $_ -in @('ec2:RunInstances') } { @('instance','volume','network-interface','subnet','security-group','key-pair') + @('image'); break }
                     'ec2:TerminateInstances' { @('instance'); break }
+                    { $_ -in @('ec2:ModifyInstanceAttribute','ec2:ModifyInstanceMetadataOptions','ec2:StartInstances','ec2:StopInstances','ec2:AssociateIamInstanceProfile','ec2:DisassociateIamInstanceProfile','ec2:ReplaceIamInstanceProfileAssociation') } { @('instance'); break }
+                    'ec2:ModifyVolume' { @('volume'); break }
+                    'ec2:ModifySecurityGroupRules' { @('security-group','security-group-rule'); break }
                     { $_ -in @('ec2:CreateVpcEndpoint','ec2:DeleteVpcEndpoints','ec2:ModifyVpcEndpoint') } { @('vpc-endpoint','vpc','subnet','route-table','security-group'); break }
                     { $_ -in @('ec2:CreateNetworkInterface','ec2:DeleteNetworkInterface') } { @('network-interface'); break }
                     default { throw ('No EC2 resource mapping for ' + $action) }
