@@ -54,7 +54,7 @@ $k3sActions = @(
     'ssm:GetParameter','iam:CreateRole','iam:DeleteRole','iam:GetRole','iam:UpdateRole','iam:UpdateAssumeRolePolicy','iam:TagRole','iam:UntagRole',
     'iam:ListRolePolicies','iam:ListAttachedRolePolicies','iam:ListOpenIDConnectProviders','iam:GetOpenIDConnectProvider','iam:PutRolePolicy','iam:GetRolePolicy','iam:DeleteRolePolicy','iam:AttachRolePolicy','iam:DetachRolePolicy',
     'iam:CreateInstanceProfile','iam:DeleteInstanceProfile','iam:GetInstanceProfile','iam:AddRoleToInstanceProfile','iam:RemoveRoleFromInstanceProfile','iam:TagInstanceProfile','iam:UntagInstanceProfile','iam:PassRole',
-    'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration','lambda:GetPolicy','lambda:ListTags','lambda:ListVersionsByFunction',
+    'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration','lambda:GetFunctionCodeSigningConfig','lambda:GetPolicy','lambda:ListTags','lambda:ListVersionsByFunction',
     'lambda:AddPermission','lambda:RemovePermission','lambda:TagResource','lambda:UntagResource',
     'apigateway:GET','apigateway:POST','apigateway:PUT','apigateway:PATCH','apigateway:DELETE','apigateway:TagResource',
     'ssm:CreateDocument','ssm:UpdateDocument','ssm:UpdateDocumentDefaultVersion','ssm:DeleteDocument','ssm:DescribeDocument','ssm:DescribeDocumentPermission','ssm:GetDocument','ssm:AddTagsToResource','ssm:RemoveTagsFromResource',
