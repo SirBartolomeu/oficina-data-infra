@@ -4,7 +4,8 @@ param(
     [string]$GitHubOwnerId = '75947038',
     [string]$DataRepoId = '1460805172',
     [string]$K3sRepoId = '1460805236',
-    [string]$StateBucket = 'oficina-fiap-demo-tfstate-879310855568-us-east-1'
+    [string]$StateBucket = 'oficina-fiap-demo-tfstate-879310855568-us-east-1',
+    [string]$VpcId = 'vpc-0c8195fad67689235'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,6 +16,8 @@ if ($LASTEXITCODE -ne 0 -or $identity.Account -ne $AccountId) { throw 'AWS accou
 if ($identity.Arn -ne "arn:aws:iam::$($AccountId):root") {
     throw 'Run bootstrap only from the confirmed root session.'
 }
+$existingVpc = aws ec2 describe-vpcs --region $region --vpc-ids $VpcId --query 'Vpcs[0].VpcId' --output text
+if ($LASTEXITCODE -ne 0 -or $existingVpc -ne $VpcId) { throw 'The configured K3s VPC does not exist in the selected region.' }
 
 $provider = aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, 'token.actions.githubusercontent.com')].Arn | [0]" --output text
 if ($LASTEXITCODE -ne 0) { throw 'Unable to list OIDC providers.' }
@@ -46,13 +49,13 @@ $k3sActions = @(
     'ec2:AuthorizeSecurityGroupIngress','ec2:AuthorizeSecurityGroupEgress','ec2:RevokeSecurityGroupIngress','ec2:RevokeSecurityGroupEgress',
     'ec2:CreateVpcEndpoint','ec2:DeleteVpcEndpoints','ec2:ModifyVpcEndpoint','ec2:CreateNetworkInterface','ec2:DeleteNetworkInterface','ec2:GetSecurityGroupsForVpc',
     'ssm:GetParameter','iam:CreateRole','iam:DeleteRole','iam:GetRole','iam:UpdateAssumeRolePolicy','iam:TagRole','iam:UntagRole',
-    'iam:ListRolePolicies','iam:ListAttachedRolePolicies','iam:PutRolePolicy','iam:GetRolePolicy','iam:DeleteRolePolicy','iam:AttachRolePolicy','iam:DetachRolePolicy',
-    'iam:CreateInstanceProfile','iam:DeleteInstanceProfile','iam:GetInstanceProfile','iam:AddRoleToInstanceProfile','iam:RemoveRoleFromInstanceProfile','iam:PassRole',
-    'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration',
+    'iam:ListRolePolicies','iam:ListAttachedRolePolicies','iam:ListOpenIDConnectProviders','iam:GetOpenIDConnectProvider','iam:PutRolePolicy','iam:GetRolePolicy','iam:DeleteRolePolicy','iam:AttachRolePolicy','iam:DetachRolePolicy',
+    'iam:CreateInstanceProfile','iam:DeleteInstanceProfile','iam:GetInstanceProfile','iam:AddRoleToInstanceProfile','iam:RemoveRoleFromInstanceProfile','iam:TagInstanceProfile','iam:UntagInstanceProfile','iam:PassRole',
+    'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration','lambda:GetPolicy','lambda:ListTags',
     'lambda:AddPermission','lambda:RemovePermission','lambda:TagResource','lambda:UntagResource',
     'apigateway:GET','apigateway:POST','apigateway:PUT','apigateway:PATCH','apigateway:DELETE',
-    'ssm:CreateDocument','ssm:UpdateDocument','ssm:DeleteDocument','ssm:DescribeDocument','ssm:GetDocument','ssm:AddTagsToResource','ssm:RemoveTagsFromResource',
-    's3:CreateBucket','s3:DeleteBucket','s3:GetBucketLocation','s3:ListBucket','s3:GetBucketTagging','s3:PutBucketTagging',
+    'ssm:CreateDocument','ssm:UpdateDocument','ssm:DeleteDocument','ssm:DescribeDocument','ssm:DescribeDocumentPermission','ssm:GetDocument','ssm:AddTagsToResource','ssm:RemoveTagsFromResource',
+    's3:CreateBucket','s3:DeleteBucket','s3:GetBucketLocation','s3:ListBucket','s3:GetBucketPolicy','s3:GetBucketTagging','s3:PutBucketTagging',
     's3:GetBucketPublicAccessBlock','s3:PutBucketPublicAccessBlock','s3:GetEncryptionConfiguration','s3:PutEncryptionConfiguration',
     's3:GetLifecycleConfiguration','s3:PutLifecycleConfiguration',
     's3:PutObject','s3:GetObject','s3:DeleteObject','s3:ListBucketMultipartUploads','s3:AbortMultipartUpload',
@@ -137,7 +140,12 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
                     { $_ -in @('ec2:AttachInternetGateway','ec2:DetachInternetGateway') } { @('internet-gateway','vpc'); break }
                     { $_ -in @('ec2:CreateRouteTable','ec2:DeleteRouteTable','ec2:CreateRoute','ec2:DeleteRoute') } { @('route-table'); break }
                     { $_ -in @('ec2:AssociateRouteTable','ec2:DisassociateRouteTable') } { @('route-table','subnet'); break }
-                    { $_ -in @('ec2:CreateSecurityGroup','ec2:DeleteSecurityGroup','ec2:AuthorizeSecurityGroupIngress','ec2:AuthorizeSecurityGroupEgress','ec2:RevokeSecurityGroupIngress','ec2:RevokeSecurityGroupEgress') } { @('security-group'); break }
+                    'ec2:CreateSecurityGroup' {
+                        if ($Name -eq ($prefix + '-infra-k3s')) { @('security-group', ('vpc/' + $VpcId)) }
+                        else { @('security-group','vpc') }
+                        break
+                    }
+                    { $_ -in @('ec2:DeleteSecurityGroup','ec2:AuthorizeSecurityGroupIngress','ec2:AuthorizeSecurityGroupEgress','ec2:RevokeSecurityGroupIngress','ec2:RevokeSecurityGroupEgress') } { @('security-group'); break }
                     { $_ -in @('ec2:CreateTags','ec2:DeleteTags') } { @('vpc','subnet','internet-gateway','route-table','security-group','security-group-rule','vpc-endpoint','network-interface','instance','volume'); break }
                     { $_ -in @('ec2:RunInstances') } { @('instance','volume','network-interface','subnet','security-group','key-pair') + @('image'); break }
                     'ec2:TerminateInstances' { @('instance'); break }
@@ -147,6 +155,7 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
                 }
                 $ec2Arns = @($resourceTypes | ForEach-Object {
                     if ($_ -eq 'image') { 'arn:aws:ec2:' + $region + '::image/*' }
+                    elseif ($_ -like 'vpc/*') { 'arn:aws:ec2:' + $region + ':' + $AccountId + ':' + $_ }
                     else { 'arn:aws:ec2:' + $region + ':' + $AccountId + ':' + $_ + '/*' }
                 })
                 [ordered]@{ Effect = 'Allow'; Action = @($action); Resource = $ec2Arns }
@@ -197,18 +206,35 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
             ); break }
             'apigateway' { @(
                 ('arn:aws:apigateway:' + $region + '::/apis'),
-                ('arn:aws:apigateway:' + $region + '::/apis/*'),
+                ('arn:aws:apigateway:' + $region + '::/apis/??????????'),
+                ('arn:aws:apigateway:' + $region + '::/apis/??????????/integrations'),
+                ('arn:aws:apigateway:' + $region + '::/apis/??????????/integrations/*'),
+                ('arn:aws:apigateway:' + $region + '::/apis/??????????/routes'),
+                ('arn:aws:apigateway:' + $region + '::/apis/??????????/routes/*'),
+                ('arn:aws:apigateway:' + $region + '::/apis/??????????/stages'),
+                ('arn:aws:apigateway:' + $region + '::/apis/??????????/stages/*'),
                 ('arn:aws:apigateway:' + $region + '::/tags/*')
             ); break }
             default { @('*') }
         }
         $groupActions = @($group.Group)
         if ($group.Name -eq 'iam' -and $Name -eq ($prefix + '-infra-k3s')) {
+            # IAM ListOpenIDConnectProviders is account-scoped and requires Resource "*".
+            $oidcProviderListActions = @($groupActions | Where-Object { $_ -eq 'iam:ListOpenIDConnectProviders' })
+            $oidcProviderReadActions = @($groupActions | Where-Object { $_ -eq 'iam:GetOpenIDConnectProvider' })
+            $groupActions = @($groupActions | Where-Object { $_ -ne 'iam:ListOpenIDConnectProviders' -and $_ -ne 'iam:GetOpenIDConnectProvider' })
             $attachmentActions = @($groupActions | Where-Object { $_ -in @('iam:AttachRolePolicy','iam:DetachRolePolicy') })
             $passRoleActions = @($groupActions | Where-Object { $_ -eq 'iam:PassRole' })
             $groupActions = @($groupActions | Where-Object { $_ -notin $attachmentActions -and $_ -notin $passRoleActions })
             if ($groupActions.Count -gt 0) {
                 [ordered]@{ Effect = 'Allow'; Action = $groupActions; Resource = $serviceResources }
+            }
+            if ($oidcProviderListActions.Count -gt 0) {
+                [ordered]@{ Effect = 'Allow'; Action = $oidcProviderListActions; Resource = '*' }
+            }
+            if ($oidcProviderReadActions.Count -gt 0) {
+                $oidcProviderArn = 'arn:aws:iam::' + $AccountId + ':oidc-provider/token.actions.githubusercontent.com'
+                [ordered]@{ Effect = 'Allow'; Action = $oidcProviderReadActions; Resource = $oidcProviderArn }
             }
             if ($attachmentActions.Count -gt 0) {
                 $roleArn = 'arn:aws:iam::' + $AccountId + ':role/' + $prefix + '-*'
