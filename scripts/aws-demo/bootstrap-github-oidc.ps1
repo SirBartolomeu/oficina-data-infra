@@ -5,7 +5,8 @@ param(
     [string]$DataRepoId = '1460805172',
     [string]$K3sRepoId = '1460805236',
     [string]$StateBucket = 'oficina-fiap-demo-tfstate-879310855568-us-east-1',
-    [string]$VpcId = 'vpc-0c8195fad67689235'
+    [string]$VpcId = 'vpc-0c8195fad67689235',
+    [string]$AuthApiId = 'un67q1d3jk'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,7 +54,7 @@ $k3sActions = @(
     'ssm:GetParameter','iam:CreateRole','iam:DeleteRole','iam:GetRole','iam:UpdateRole','iam:UpdateAssumeRolePolicy','iam:TagRole','iam:UntagRole',
     'iam:ListRolePolicies','iam:ListAttachedRolePolicies','iam:ListOpenIDConnectProviders','iam:GetOpenIDConnectProvider','iam:PutRolePolicy','iam:GetRolePolicy','iam:DeleteRolePolicy','iam:AttachRolePolicy','iam:DetachRolePolicy',
     'iam:CreateInstanceProfile','iam:DeleteInstanceProfile','iam:GetInstanceProfile','iam:AddRoleToInstanceProfile','iam:RemoveRoleFromInstanceProfile','iam:TagInstanceProfile','iam:UntagInstanceProfile','iam:PassRole',
-    'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration','lambda:GetPolicy','lambda:ListTags',
+    'lambda:CreateFunction','lambda:UpdateFunctionCode','lambda:UpdateFunctionConfiguration','lambda:DeleteFunction','lambda:GetFunction','lambda:GetFunctionConfiguration','lambda:GetPolicy','lambda:ListTags','lambda:ListVersionsByFunction',
     'lambda:AddPermission','lambda:RemovePermission','lambda:TagResource','lambda:UntagResource',
     'apigateway:GET','apigateway:POST','apigateway:PUT','apigateway:PATCH','apigateway:DELETE',
     'ssm:CreateDocument','ssm:UpdateDocument','ssm:UpdateDocumentDefaultVersion','ssm:DeleteDocument','ssm:DescribeDocument','ssm:DescribeDocumentPermission','ssm:GetDocument','ssm:AddTagsToResource','ssm:RemoveTagsFromResource',
@@ -134,6 +135,11 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
         if ($group.Name -eq 'ec2') {
             $describeActions = @($group.Group | Where-Object { $_ -eq 'ec2:Describe*' })
             $writeActions = @($group.Group | Where-Object { $_ -ne 'ec2:Describe*' })
+            $authorizeRuleActions = @()
+            if ($Name -eq ($prefix + '-infra-k3s')) {
+                $authorizeRuleActions = @($writeActions | Where-Object { $_ -in @('ec2:AuthorizeSecurityGroupIngress','ec2:AuthorizeSecurityGroupEgress') })
+                $writeActions = @($writeActions | Where-Object { $_ -notin $authorizeRuleActions })
+            }
             if ($describeActions.Count -gt 0) {
                 [ordered]@{ Effect = 'Allow'; Action = $describeActions; Resource = '*' }
             }
@@ -167,6 +173,26 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
                     else { 'arn:aws:ec2:' + $region + ':' + $AccountId + ':' + $_ + '/*' }
                 })
                 [ordered]@{ Effect = 'Allow'; Action = @($action); Resource = $ec2Arns }
+            }
+            if ($authorizeRuleActions.Count -gt 0) {
+                $vpcArn = 'arn:aws:ec2:' + $region + ':' + $AccountId + ':vpc/' + $VpcId
+                [ordered]@{
+                    Effect = 'Allow'; Action = $authorizeRuleActions
+                    Resource = @('arn:aws:ec2:' + $region + ':' + $AccountId + ':security-group/*')
+                    Condition = @{ ArnEquals = @{ 'ec2:Vpc' = $vpcArn } }
+                }
+                [ordered]@{
+                    Effect = 'Allow'; Action = $authorizeRuleActions
+                    Resource = @('arn:aws:ec2:' + $region + ':' + $AccountId + ':security-group-rule/*')
+                    Condition = @{
+                        StringEquals = @{
+                            'aws:RequestTag/Project' = 'oficina-fiap'
+                            'aws:RequestTag/Environment' = 'demo'
+                            'aws:RequestTag/ManagedBy' = 'terraform'
+                        }
+                        'ForAllValues:StringEquals' = @{ 'aws:TagKeys' = @('Project','Environment','ManagedBy','Name') }
+                    }
+                }
             }
             continue
         }
@@ -219,8 +245,8 @@ function Set-OidcRole([string]$Name, [string]$Repo, [string]$RepoId, [string[]]$
                 ('arn:aws:apigateway:' + $region + '::/apis/??????????/integrations/*'),
                 ('arn:aws:apigateway:' + $region + '::/apis/??????????/routes'),
                 ('arn:aws:apigateway:' + $region + '::/apis/??????????/routes/*'),
-                ('arn:aws:apigateway:' + $region + '::/apis/??????????/stages'),
-                ('arn:aws:apigateway:' + $region + '::/apis/??????????/stages/*'),
+                ('arn:aws:apigateway:' + $region + '::/apis/' + $AuthApiId + '/stages'),
+                ('arn:aws:apigateway:' + $region + '::/apis/' + $AuthApiId + '/stages/*'),
                 ('arn:aws:apigateway:' + $region + '::/tags/*')
             ); break }
             default { @('*') }
