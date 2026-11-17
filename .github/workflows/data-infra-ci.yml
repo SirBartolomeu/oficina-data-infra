@@ -6,7 +6,6 @@ on:
     paths: ['infra/aws-data/**', '.github/workflows/data-infra-ci.yml']
   pull_request:
     branches: [main]
-    paths: ['infra/aws-data/**', '.github/workflows/data-infra-ci.yml']
   workflow_dispatch:
     inputs:
       deploy:
